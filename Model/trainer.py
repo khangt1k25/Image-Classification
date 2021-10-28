@@ -7,8 +7,9 @@ from torch import optim
 from collections import defaultdict
 import pickle 
 from matplotlib import pyplot as plt 
-import time 
-from Model.models import * 
+import time
+from Model.models import *
+
 
 class Trainer:
     def __init__(self, model_name: str,
@@ -31,6 +32,7 @@ class Trainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = self.get_model()
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr)
+        self.acc_test_curret = 0
         self.make_loader()
     
     def get_model(self):
