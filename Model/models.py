@@ -1,7 +1,8 @@
 import torch
 from torch import Tensor
 import torch.nn as nn
-import time
+from torchvision import models 
+
 class Lenet(nn.Module):
     def __init__(self, n_classes=10, dropout=0.2):
         super(Lenet, self).__init__()
@@ -38,39 +39,50 @@ class Lenet(nn.Module):
 
 
 class Alexnet(nn.Module):
-    def __init__(self, n_classes, dropout=0.2):
+    def __init__(self, n_classes:int = 10,
+                 dropout:float = 0.2,
+                 use_pretrained: bool = False
+        ):
         super(Alexnet, self).__init__()
-
-        self.convolution = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            nn.Conv2d(64, 192, kernel_size=5, padding=2),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            nn.Conv2d(192, 384, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(384, 256, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2)
-        )
-        self.avgpool = nn.AdaptiveAvgPool2d((6, 6))
-        self.linear = nn.Sequential(
-            nn.Dropout(p=dropout),
-            nn.Linear(256 * 6 * 6, 4096),
-            nn.ReLU(inplace=True),
-            nn.Dropout(p=dropout),
-            nn.Linear(4096, 4096),
-            nn.ReLU(inplace=True),
-            nn.Linear(4096, n_classes),
-        )
+        self.n_classes = n_classes
+        self.use_pretrained = use_pretrained
+        if not self.use_pretrained:
+            self.convolution = nn.Sequential(
+                nn.Conv2d(3, 64, kernel_size=(11, 11), stride=(4, 4), padding=(2, 2)),
+                nn.ReLU(inplace=True),
+                nn.MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False),
+                nn.Conv2d(64, 192, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2)),
+                nn.ReLU(inplace=True),
+                nn.MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False),
+                nn.Conv2d(192, 384, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(384, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
+                nn.ReLU(inplace=True),
+                nn.MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False)
+            )
+            self.avgpool = nn.AdaptiveAvgPool2d((6, 6))
+            self.linear = nn.Sequential(
+                nn.Dropout(p=dropout),
+                nn.Linear(256 * 6 * 6, 4096),
+                nn.ReLU(inplace=True),
+                nn.Dropout(p=dropout),
+                nn.Linear(4096, 4096),
+                nn.ReLU(inplace=True),
+                nn.Linear(4096, n_classes),
+            )
+        else:
+            self.model = models.AlexNet(pretrained=True, progress=True)
+            self.linear = nn.Linear(1000, self.n_classes)
     
     def forward(self, images):
-        outs = self.convolution(images)
-        outs = self.avgpool(outs)
-        outs = outs.reshape(outs.size(0), -1)
+        if not self.use_pretrained:
+            outs = self.convolution(images)
+            outs = self.avgpool(outs)
+            outs = outs.reshape(outs.size(0), -1)
+        else:
+            outs = self.model(images)
         return self.linear(outs)
         
 

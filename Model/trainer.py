@@ -1,6 +1,5 @@
 from torch import nn
 import torch 
-from Model.models import *
 from torchvision import transforms 
 import torchvision
 from torch.utils.data import DataLoader, random_split
@@ -8,24 +7,30 @@ from torch import optim
 from collections import defaultdict
 import pickle 
 from matplotlib import pyplot as plt 
+import time 
+from Model.models import * 
 
 class Trainer:
     def __init__(self, model_name: str,
                 batch_size: int = 64,
                 lr: float = 1e-5,
                 path_save_model: str = "",
-                n_epochs: int = 100
+                n_epochs: int = 100,
+                use_pretrained: float = False,
+                training_data_percent:float = 0.2
         ):
         self.model_name = model_name
         self.n_classes = 10
         self.batch_size = batch_size
         self.lr = lr 
+        self.use_pretrained = use_pretrained
+        self.training_data_percent = training_data_percent
         self.path_save_model = path_save_model
         self.n_epochs = n_epochs 
         self.loss_fn = nn.CrossEntropyLoss()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = self.get_model()
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
+        self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr)
         self.make_loader()
     
     def get_model(self):
@@ -34,8 +39,8 @@ class Trainer:
             self.input_size = 32
 
         elif self.model_name =="alexnet":
-            model = Alexnet(n_classes=self.n_classes).to(self.device)
-            self.input_size = 256
+            model = Alexnet(n_classes=self.n_classes, use_pretrained = self.use_pretrained).to(self.device)
+            self.input_size = 224
         else:
             raise Exception("Not implement")
 
@@ -45,7 +50,7 @@ class Trainer:
         self.transform = transforms.Compose([
             transforms.Resize(self.input_size),
             transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
         self.train_set = torchvision.datasets.CIFAR10(root='./data', 
                                             train=True, 
@@ -57,26 +62,22 @@ class Trainer:
                                         download=True,
                                         transform=self.transform
                                         )
+        self.n_train_samples = int(self.training_data_percent * len(self.train_set))
+        self.n_val_samples = len(self.train_set) - self.n_train_samples
         self.train_set, self.val_set = random_split(
             self.train_set,
-            lengths=[len(self.train_set) - len(self.test_set), len(self.test_set)],
+            lengths=[self.n_train_samples, self.n_val_samples],
             generator=torch.Generator().manual_seed(42),
         )
         self.train_loader = DataLoader(self.train_set, batch_size=self.batch_size, shuffle=True,num_workers=2)
         self.val_loader = DataLoader(self.val_set, batch_size=self.batch_size, shuffle=True,num_workers=2)
         self.test_loader = DataLoader(self.test_set, batch_size=self.batch_size, shuffle=False, num_workers=2)
-    
-    def get_accuracy(self, targets, predicts):
-        targets = torch.cat(targets, dim=0)
-        predicts = torch.cat(predicts, dim=0)
-        predicts = torch.argmax(predicts, dim=1)
-        count_correct = torch.sum(predicts==targets).item()
-        return count_correct / predicts.size(0)
+
 
     def train_on_epoch(self):
         self.model.train()
         train_loss = 0
-        targets, predicts = [], []
+        correct, total = 0, 0
         for idx,(images, labels) in enumerate(self.train_loader):
             images = images.to(self.device)
             labels = labels.to(self.device)
@@ -85,10 +86,16 @@ class Trainer:
             loss = self.loss_fn(outs, labels)
             loss.backward()
             self.optimizer.step()
-            targets.append(labels)
-            predicts.append(outs)
+            
+            predict = torch.argmax(outs, dim=1)
+            total += predict.size(0)
+            correct += (predict == labels).sum().item()
             train_loss += loss.item()
-        return train_loss/len(self.train_loader), self.get_accuracy(targets, predicts)
+            
+            if idx % 200 == 0:
+                print(idx, end=" ")
+        print()
+        return train_loss/len(self.train_loader), correct / total
     
     def plot(self, title, file_name, train_values, val_values,is_acc=False):
         plt.plot(train_values)
@@ -117,24 +124,45 @@ class Trainer:
         with open(f"history{epoch}.pkl",'wb') as file:
             pickle.dump(self.history, file, protocol=pickle.HIGHEST_PROTOCOL)
         print("Save history done")
+    
+    def testing(self):
+        correct, total = 0, 0
+        with torch.no_grad():
+            for images, labels in self.test_loader:
+                images = images.to(self.device)
+                labels = labels.to(self.device)
+                outs = self.model(images)
+                
+                predict = torch.argmax(outs, dim=1)
+                total += predict.size(0)
+                correct += (predict == labels).sum().item()
+        
+        self.acc_test_curret = 100 * correct / total
+        print("Accuracy for testing: {:.2f}\n".format(self.acc_test_current))
 
     def evaluate(self):
         val_loss = 0
         self.model.eval()
-        targets, predicts = [], []
+        correct, total = 0, 0
         for idx,(images, labels) in enumerate(self.val_loader):
             images = images.to(self.device)
             labels = labels.to(self.device)
             outs = self.model(images)
             loss = self.loss_fn(outs, labels)
-            targets.append(labels)
-            predicts.append(outs)
             val_loss += loss.item()
-        return val_loss/len(self.val_loader), self.get_accuracy(targets, predicts)
+            
+            predict = torch.argmax(outs, dim=1)
+            total += predict.size(0)
+            correct += (predict == labels).sum().item()
+            if idx % 200 == 0:
+                print(idx, end=" ")
+        print()
+        return val_loss/len(self.val_loader), correct / total
     
 
     def fit(self):
         self.history = defaultdict(list)
+        best_acc = 0
         for epoch in range(self.n_epochs):
             start_time = time.time()
             train_loss, train_acc = self.train_on_epoch()
@@ -144,3 +172,8 @@ class Trainer:
             self.history['val_acc'] = val_acc
             self.history['val_loss'] = val_loss
             print(f"Epoch:{epoch}---Train acc:{train_acc}---Train loss:{train_loss}---Val acc:{val_acc}---Val loss:{val_loss}--Time:{time.time()-start_time}")            
+            self.testing()
+            if self.acc_test_current > best_acc and epoch >= 10:
+                best_acc = self.acc_test_current 
+                self.save_model(epoch)
+                
