@@ -32,7 +32,7 @@ class Trainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = self.get_model()
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr)
-        self.acc_test_curret = 0
+        self.acc_test_current = 0
         self.make_loader()
     
     def get_model(self):
@@ -139,7 +139,7 @@ class Trainer:
                 total += predict.size(0)
                 correct += (predict == labels).sum().item()
         
-        self.acc_test_curret = 100 * correct / total
+        self.acc_test_current = 100 * correct / total
         print("Accuracy for testing: {:.2f}\n".format(self.acc_test_current))
 
     def evaluate(self):
