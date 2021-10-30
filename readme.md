@@ -13,3 +13,7 @@
 
 
 Updating ...
+
+
+Notebook Lenet [link](https://www.kaggle.com/khanhdaom/notebook7d453d727d/data?scriptVersionId=78390895)
+Notebook Alexnet [link](https://www.kaggle.com/khanhdaom/cifar-alexnet)
