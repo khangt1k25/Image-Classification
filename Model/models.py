@@ -1,7 +1,8 @@
 import torch
 from torch import Tensor
 import torch.nn as nn
-from torchvision import models 
+from torch.nn.modules import linear
+from torchvision import models
 
 class Lenet(nn.Module):
     def __init__(self, n_classes=10, dropout=0.2):
@@ -73,8 +74,19 @@ class Alexnet(nn.Module):
                 nn.Linear(4096, n_classes),
             )
         else:
-            self.model = models.AlexNet(pretrained=True, progress=True)
-            self.linear = nn.Linear(1000, self.n_classes)
+            alexnet = models.alexnet(pretrained=True)
+            convolution_layers = list(alexnet.children())[:-1]
+            linear_layers = list(alexnet.children())[-1][:-2]
+            self.convolution = nn.Sequential(*convolution_layers)
+            self.linear1 = nn.Sequential(*linear_layers)
+            for param in self.convolution.parameters():
+                param.requires_grad = False
+            
+            for param in self.linear1.parameters():
+                param.requires_grad = False
+
+            self.linear = nn.Linear(4096, 10)
+        self.dropout = nn.Dropout(dropout)
     
     def forward(self, images):
         if not self.use_pretrained:
@@ -82,8 +94,10 @@ class Alexnet(nn.Module):
             outs = self.avgpool(outs)
             outs = outs.reshape(outs.size(0), -1)
         else:
-            outs = self.model(images)
-        return self.linear(outs)
+            outs = self.convolution(images)
+            outs = outs.reshape(outs.size(0), -1)
+            outs = self.linear1(outs)
+        return self.linear(self.dropout(outs))
         
 
         

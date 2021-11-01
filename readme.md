@@ -16,4 +16,4 @@ Updating ...
 
 
 - Notebook Lenet [link](https://www.kaggle.com/khanhdaom/cifar10-lenet)
-- Notebook Alexnet [link](https://www.kaggle.com/daominhkhanh/cifar10-alexnet/notebook)
+- Notebook Alexnet [link](https://www.kaggle.com/khanhdaom/cifar10-alexnet/notebook)

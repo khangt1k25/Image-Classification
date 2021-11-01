@@ -169,10 +169,10 @@ class Trainer:
             start_time = time.time()
             train_loss, train_acc = self.train_on_epoch()
             val_loss, val_acc = self.evaluate()
-            self.history['train_acc'] = train_acc
-            self.history['train_loss'] = train_loss
-            self.history['val_acc'] = val_acc
-            self.history['val_loss'] = val_loss
+            self.history['train_acc'].append(train_acc)
+            self.history['train_loss'].append(train_loss)
+            self.history['val_acc'].append(val_acc)
+            self.history['val_loss'].append(val_loss)
             print(f"Epoch:{epoch}---Train acc:{train_acc}---Train loss:{train_loss}---Val acc:{val_acc}---Val loss:{val_loss}--Time:{time.time()-start_time}")            
             self.testing()
             if self.acc_test_current > best_acc and epoch >= 10:
