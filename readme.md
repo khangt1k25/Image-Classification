@@ -15,5 +15,5 @@
 Updating ...
 
 
-Notebook Lenet [link](https://www.kaggle.com/khanhdaom/notebook7d453d727d/data?scriptVersionId=78390895)
-Notebook Alexnet [link](https://www.kaggle.com/khanhdaom/cifar-alexnet)
+- Notebook Lenet [link](https://www.kaggle.com/khanhdaom/cifar10-lenet)
+- Notebook Alexnet [link](https://www.kaggle.com/daominhkhanh/cifar10-alexnet/notebook)
